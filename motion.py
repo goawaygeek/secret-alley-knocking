@@ -1,3 +1,4 @@
+import os
 import RPi.GPIO as GPIO
 import time
 import subprocess
@@ -5,7 +6,10 @@ import signal
 from qhue import Bridge
 import random
 import sys
- 
+
+os.environ['DISPLAY'] = ':0'
+os.system('clear')
+
 SENSOR_PIN = 23
 SERVO_PIN = 18
 CONT_SERVO_PIN = 17
@@ -31,7 +35,10 @@ pwm.start(0)
 
 # setup videos
 VIDEO_ONE = '/home/ally/alley/loop.mp4'
-VIDEO_TWO = '/home/ally/alley/rats.mp4'
+VIDEO_TWO = '/home/ally/alley/kettle.mp4'
+#VIDEO_ONE = '/home/alley/rats/loop.mp4'
+#VIDEO_TWO = '/home/alley/rats/kettle.mp4'
+
 motion = False
 
 def flicker(bridge, elapsed_time, lights_list = [], transition = 10):
@@ -45,17 +52,19 @@ def flicker(bridge, elapsed_time, lights_list = [], transition = 10):
         time.sleep(random.uniform(0,0.5))
 
 def play_video(video_path, loop):
+    os.system('clear')
     if loop:
-        return subprocess.Popen(['cvlc', '--loop', '--no-video-title-show', '--fullscreen', video_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        command = f"cvlc --loop --no-video-title-show {video_path}" #--fullscreen
+        return subprocess.Popen(['cvlc', '--loop', '--no-video-title-show', video_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        command = f"cvlc --loop --no-video-title-show {video_path}" #--fullscreen '--fullscreen',
     else:
-        return subprocess.Popen(['cvlc', '--play-and-exit', '--no-video-title-show', '--fullscreen', video_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        command = f"cvlc --play-and-exit --no-video-title-show {video_path}"
+        return subprocess.Popen(['cvlc', '--play-and-exit', '--no-video-title-show', video_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        command = f"cvlc --play-and-exit --no-video-title-show {video_path}" #'--fullscreen',
     return subprocess.Popen(command, shell=True)
 
 def move_cont_servo():
+    print('move_cont_servo')
     pwm.ChangeDutyCycle(12)
-    time.sleep(0.30)  # circa 90 degrees for our servo
+    time.sleep(0.22)  # circa 90 degrees for our servo
     # Set the duty cycle to 0 to stop the servo
     pwm.ChangeDutyCycle(0)
 
@@ -81,6 +90,8 @@ def motion_detected(channel):
     # or continuous servo
     print('There was a movement!')
     global motion
+    if motion == True:
+        return
     motion = True
     # open_servo()
     # close_servo()
@@ -91,34 +102,39 @@ try:
     GPIO.add_event_detect(SENSOR_PIN , GPIO.RISING, callback=motion_detected)
     video_process = play_video(VIDEO_ONE, True)  # Start playing the first video on loop
     while True:
+        os.system('clear')
         if motion:
             if video_process:
-                print('video process exists attempting to quit')
+                # print('video process exists attempting to quit')
                 video_process.terminate()
                 #subprocess.call(['vlc',name,'vlc://quit'])
                 #video_process.send_signal(signal.SIGINT)  # Send interrupt signal to the video process
                 video_process.wait()  # Wait for the process to terminatevideo_process = play_video(video_two, False)  # Play the second video once
             video_process = play_video(VIDEO_TWO, False)  # Play the second video once
-            time.sleep(3)  # Wait for the second video to start
-            flicker(b, 0.5, HUE_LIGHTS, transition=1)
+            time.sleep(8)  # Wait for the second video to start
+            #flicker(b, 0.5, HUE_LIGHTS, transition=1)
             b.lights[4].state(bri=255, on=True)
             time.sleep(18.5) # wait until you open the first servo
             flicker(b, 6.0, HUE_LIGHTS, transition=1)
             b.lights[4].state(bri=255, on=True)
-            time.sleep(13) # wait until you open the first servo
+            time.sleep(4) # wait until you open the first servo
+            flicker(b, 2.0, HUE_LIGHTS, transition=1)
+            b.lights[4].state(bri=255, on=True)
+            time.sleep(7) # wait until you open the first servo
             flicker(b, 1.0, HUE_LIGHTS, transition=1)
             open_servo() # takes 1.5 seconds
             close_servo() # takes 0.5 seconds
             time.sleep(1)
             move_cont_servo() # takes 0.3 seconds
             while video_process.poll() is None:  # Wait for the second video to finish
-                time.sleep(0.5)
+                time.sleep(0.01)
             video_process = play_video(VIDEO_ONE, True)  # Switch back to playing the first video on loop   
-            time.sleep(1) # wait for video to start
+            time.sleep(2) # wait for video to start
             # turn lights back on
             for light in HUE_LIGHTS:
                 b.lights[light].state(bri=255, on=True)
             motion = False
+            print('turning motion to false')
         time.sleep(0.1)
 except KeyboardInterrupt:
     p.stop()
